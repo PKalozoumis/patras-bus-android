@@ -68,4 +68,7 @@ dependencies {
 	debugImplementation(libs.androidx.ui.test.manifest)
 	implementation("com.squareup.retrofit2:retrofit:2.11.0")
 	implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+	implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+	implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
+	implementation("com.fasterxml.jackson.core:jackson-databind:2.12.5")
 }
