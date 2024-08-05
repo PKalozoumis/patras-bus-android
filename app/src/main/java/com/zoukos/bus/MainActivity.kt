@@ -4,11 +4,13 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -64,42 +67,13 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 
-class MyViewModel : ViewModel() {
-	private val _myProperty: MutableStateFlow<MutableList<ListEntry>> = MutableStateFlow(mutableListOf())
-	val myProperty: StateFlow<MutableList<ListEntry>> get() = _myProperty
-
-	fun add(newValue: ListEntry) {
-		_myProperty.value.add(newValue)
-		//_myProperty.value.onEach{Log.d("SUS", it.lineName)}
-	}
-
-	fun updateProperty(newValue: MutableList<ListEntry>) {
-		_myProperty.value = newValue
-	}
-}
-
 //==============================================================================================
 
 class MainActivity : ComponentActivity()
 {
-	private var debug:Boolean = true;
 	private val entries1:MutableList<ListEntry> = mutableStateListOf()
 	private val entries2:MutableList<ListEntry> = mutableStateListOf()
 
-	private var timer: CountDownTimer = object: CountDownTimer(1000, 500){
-		override fun onTick(millisUntilFinished: Long) {
-
-		}
-
-		override fun onFinish() {
-			errorText.value = "";
-		}
-
-	};
-
-	private var errorText: MutableState<String> = mutableStateOf("");
-
-	//@SuppressLint("UnrememberedMutableState UnrememberedSnowgraves")
 	override fun onCreate(savedInstanceState: Bundle?){
 		super.onCreate(savedInstanceState)
 		enableEdgeToEdge()
@@ -108,45 +82,55 @@ class MainActivity : ComponentActivity()
 				Column(
 					modifier = Modifier
 						.fillMaxHeight()
-						.background(Color(0xFFCCFFFF))
-						.fillMaxWidth(),
-					horizontalAlignment = Alignment.CenterHorizontally,
-					verticalArrangement = Arrangement.SpaceBetween,
+						.fillMaxWidth()
+						.background(color = MaterialTheme.colorScheme.background),
+					horizontalAlignment = Alignment.CenterHorizontally
 				){
 					//TextField(value = "Text", onValueChange = {})
 
-					Column(
+					TextField(
+						value = "Text",
+						onValueChange = {},
+						label = {Text("Selected Stop:")},
+						enabled = false,
 						modifier = Modifier
-							.fillMaxWidth()
-							.fillMaxHeight(0.6f)
-							.padding(top = 30.dp),
-						horizontalAlignment = Alignment.CenterHorizontally,
-						verticalArrangement = Arrangement.SpaceBetween,
-					){
-						Thing("ΠΑΝΕΠΙΣΤΗΜΙΟ", entries1, modifier = Modifier.requiredHeight(245.dp))
-						Spacer(modifier = Modifier.height(30.dp))
-						Thing("ΚΕΝΤΡΟ", entries2, modifier = Modifier.requiredHeight(245.dp))
-					}
+							.fillMaxWidth(0.85f)
+							.padding(top = 45.dp)
+							.clickable { Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT) }
+					)
 
 					Column(
-						modifier = Modifier
-							.fillMaxWidth()
-							.weight(1.0f, true),
-						verticalArrangement = Arrangement.SpaceAround,
-						horizontalAlignment = Alignment.CenterHorizontally
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.Top,
+						modifier = Modifier.fillMaxHeight(0.8f).padding(top=15.dp)
 					){
-						if (errorText.value != null)
-							Text(errorText.value!!, fontWeight = FontWeight.Bold, color = Color.Red)
+
+						Column(
+							modifier = Modifier
+								.fillMaxWidth()
+								.weight(1.0f, fill=true),
+							horizontalAlignment = Alignment.CenterHorizontally,
+							verticalArrangement = Arrangement.Top
+						){
+							Thing("ΠΑΝΕΠΙΣΤΗΜΙΟ", entries1, modifier = Modifier.requiredHeight(245.dp))
+							//Spacer(modifier = Modifier.height(5.dp))
+							Thing("ΚΕΝΤΡΟ", entries2, modifier = Modifier.requiredHeight(245.dp))
+							//Spacer(modifier = Modifier.weight(1.0f, fill = true))
+						}
 
 						Button(
 							modifier = Modifier
 								.fillMaxWidth(0.5f)
+								.padding(top=40.dp)
 								.height(50.dp),
-							onClick=::onRefresh
-							//onClick=::test
+
+							//onClick=::onRefresh
+							onClick=::test
 						){
 							Text("Refresh")
 						}
+
+						//Spacer(modifier = Modifier.weight(1.0f, fill = true))
 					}
 				}
 			}
@@ -154,9 +138,6 @@ class MainActivity : ComponentActivity()
 	}
 
 	private fun onRefresh(): Unit{
-
-		timer.cancel()
-		timer.start()
 
 		getStopData("678", object: Callback<ResponseBody> {
 			override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
@@ -172,7 +153,9 @@ class MainActivity : ComponentActivity()
 					//Failure due to lack of busses
 					if (match == null){
 						Log.d("BUS", "No buses at the moment");
-						errorText.value = "No buses at the moment";
+						Tostaki(this@MainActivity, "No buses at the moment", Toast.LENGTH_SHORT)
+						entries1.clear()
+						entries2.clear()
 					}
 					//We need to check if the token is valid or not
 					else{
@@ -190,7 +173,7 @@ class MainActivity : ComponentActivity()
 
 								override fun onFailure(e: Exception?) {
 									Log.d("BUS", "Failed to get a new token")
-									errorText.value = "Failed to get a new token";
+									Tostaki(this@MainActivity, "Failed to get a new token", Toast.LENGTH_SHORT)
 								}
 
 							})
@@ -236,7 +219,8 @@ class MainActivity : ComponentActivity()
 
 			override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
 				Log.d("BUS", "Could not reach server")
-				errorText.value = "Could not reach server";
+
+				Tostaki(this@MainActivity, "Could not reach server", Toast.LENGTH_SHORT)
 			}
 
 		})
@@ -289,20 +273,23 @@ fun ListItem(entry: ListEntry, modifier: Modifier = Modifier) {
 			Text(
 				text = entry.lineCode,
 				fontSize = 25.sp,
-				fontWeight = FontWeight.Bold
+				fontWeight = FontWeight.Bold,
+				color = MaterialTheme.colorScheme.onSecondaryContainer
 			)
 		}
 
 		Column(
 			modifier = modifier
 				.weight(1f, fill = true)
-				.background(Color(0xAAFFFFFF))
+				.background(Color(0x22FFFFFF))
 				.padding(top = 15.dp, bottom = 10.dp, start = 10.dp, end = 10.dp),
 
 			horizontalAlignment = Alignment.Start,
 		){
-			Text(entry.lineName, fontSize = 14.sp)
-			Text("${"%02d".format(entry.min)}:${"%02d".format(entry.sec)}", modifier = modifier
+			Text(entry.lineName, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+			Text("${"%02d".format(entry.min)}:${"%02d".format(entry.sec)}",
+				color = MaterialTheme.colorScheme.onSecondaryContainer,
+				modifier = modifier
 				.padding(vertical = 10.dp));
 			Spacer(modifier = modifier.weight(1.0f, fill = true))
 		}
@@ -349,7 +336,7 @@ fun ColumnScope.Thing(name: String, data: List<ListEntry>, modifier: Modifier)
 			.weight(1.0f)
 			//.border(3.dp, Color.Black, RoundedCornerShape(20.dp))
 			.clip(shape = RoundedCornerShape(20.dp))
-			.background(Color(0xFF87D1FF))
+			.background(color = MaterialTheme.colorScheme.secondaryContainer)
 			.padding(10.dp),
 		horizontalAlignment = Alignment.CenterHorizontally
 	){
@@ -372,7 +359,8 @@ fun ColumnScope.Thing(name: String, data: List<ListEntry>, modifier: Modifier)
 				textAlign = TextAlign.Center,
 				modifier = textModifier,
 				fontSize = 18.sp,
-				fontWeight = FontWeight.Bold
+				fontWeight = FontWeight.Bold,
+				color = MaterialTheme.colorScheme.onSecondaryContainer
 			)
 		}
 

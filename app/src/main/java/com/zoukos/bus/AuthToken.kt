@@ -62,7 +62,6 @@ object AuthToken {
 
 	//===========================================================================================
 
-	@Throws(IOException::class)
 	public fun refreshToken(callback: GenericCallback<String>): Unit{
 		//Get token from remote server
 		val apiService: ApiService = RetrofitClient.apiService;
