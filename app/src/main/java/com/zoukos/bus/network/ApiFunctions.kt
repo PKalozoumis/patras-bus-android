@@ -21,5 +21,20 @@ fun getStopData(stop: String, callback: Callback<ResponseBody>): Unit{
 			Log.d("BUS", "FAIILURE FOR SOME REASON")
 		}
 	})
+}
 
+fun getAllStops(callback: Callback<ResponseBody>): Unit{
+	val apiService: ApiService = RetrofitClient.apiService;
+
+	AuthToken.initToken(object: GenericCallback<String> {
+		override fun onSuccess(data: String) {
+			val call: Call<ResponseBody> = apiService.allStops("Bearer $data");
+			call.enqueue(callback);
+		}
+
+		//Could not get stops for some reason
+		override fun onFailure(e: Exception?) {
+			Log.d("BUS", "Failed to get stops")
+		}
+	})
 }

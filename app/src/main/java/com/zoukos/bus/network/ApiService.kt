@@ -15,4 +15,8 @@ interface ApiService {
 
 	@GET("https://patra.citybus.gr/el/stops")
 	fun requestToken(): Call<ResponseBody>;
+
+	@GET("/api/v1/el/112/stops")
+	@Headers("Accept: application/json; charset=utf-8")
+	fun allStops(@Header("Authorization") token: String): Call<ResponseBody>;
 }

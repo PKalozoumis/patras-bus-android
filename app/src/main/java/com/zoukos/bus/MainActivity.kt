@@ -1,6 +1,7 @@
 package com.zoukos.bus
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
@@ -59,6 +60,7 @@ import androidx.lifecycle.ViewModel
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.zoukos.bus.network.getStopData
+import com.zoukos.bus.ui.MapScreen
 import com.zoukos.bus.ui.theme.BusTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +98,7 @@ class MainActivity : ComponentActivity()
 						modifier = Modifier
 							.fillMaxWidth(0.85f)
 							.padding(top = 45.dp)
-							.clickable { Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT) }
+							.clickable(onClick = ::onMapClick)
 					)
 
 					Column(
@@ -124,8 +126,8 @@ class MainActivity : ComponentActivity()
 								.padding(top=40.dp)
 								.height(50.dp),
 
-							//onClick=::onRefresh
-							onClick=::test
+							onClick=::onRefresh
+							//onClick=::test
 						){
 							Text("Refresh")
 						}
@@ -140,7 +142,7 @@ class MainActivity : ComponentActivity()
 	private fun onRefresh(): Unit{
 
 		getStopData("678", object: Callback<ResponseBody> {
-			override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+			override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>){
 
 				Log.d("BUS", "Communication success")
 
@@ -185,9 +187,6 @@ class MainActivity : ComponentActivity()
 				//Valid token
 				//=================================================================================
 				Log.d("BUS", "Good token: ${AuthToken.getToken()}")
-
-
-
 
 				//Print json response
 				val mapper: ObjectMapper = ObjectMapper()
@@ -252,6 +251,13 @@ class MainActivity : ComponentActivity()
 				item.get("longitude").asDouble()
 			))
 		}
+	}
+
+	private fun onMapClick()
+	{
+		//Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT)
+		val intent: Intent = Intent(this, MapScreen::class.java)
+		startActivity(intent)
 	}
 }
 
