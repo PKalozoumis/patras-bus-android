@@ -27,7 +27,9 @@ import java.util.ArrayList
 import kotlin.streams.toList
 
 class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallback {
-	private var gmap: GoogleMap? = null
+	var gmap: GoogleMap? = null
+		get() = field
+		private set
 
 	private val view: View =
 		(context as Activity).findViewById(R.id.content) //Usually ConstraintLayout
@@ -36,7 +38,6 @@ class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallba
 
 	var isClickable: Boolean = false
 	private var pinCoords: Coordinates? = null
-	private var startCoords: Coordinates? = null
 	private var markerListener: GoogleMap.OnMarkerClickListener?
 	private var clickListener: GoogleMap.OnMapClickListener?
 	private var clickedMarker: Marker?
@@ -47,24 +48,19 @@ class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallba
 
 	private var listener: MapWrapperReadyListener? = null
 
-	val map: GoogleMap?
-		get() = gmap
-
 	var zoom: Float
 		get() = gmap!!.cameraPosition.zoom
 		set(zoomLevel) {
 			gmap!!.moveCamera(CameraUpdateFactory.zoomTo(zoomLevel))
 		}
 
-	val selectedPolygonCoords: ArrayList<Coordinates>?
-		get() = if (selectedPolygonPos != -1) polygonCoords!![selectedPolygonPos]
-		else null
+	fun getSelectedPolygonCoords(): ArrayList<Coordinates>?{
+		return if (selectedPolygonPos != -1) polygonCoords!![selectedPolygonPos] else null
+	}
 
 	companion object {
-		fun withinPolygon(
-			point: Coordinates,
-			polygonCoords: java.util.ArrayList<Coordinates?>
-		): Boolean {
+		fun withinPolygon(point: Coordinates, polygonCoords: java.util.ArrayList<Coordinates?>): Boolean {
+
 			val list = polygonCoords.map {(Coordinates::toLatLng)(it!!)}
 			return PolyUtil.containsLocation(point.toLatLng(), list, false)
 		}
@@ -79,11 +75,7 @@ class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallba
 		mapFragment?.getMapAsync(this as OnMapReadyCallback)
 	}
 
-	constructor(
-		mapFragment: SupportMapFragment?,
-		context: Context,
-		listener: MapWrapperReadyListener?
-	): this(mapFragment, context) {
+	constructor(mapFragment: SupportMapFragment?, context: Context, listener: MapWrapperReadyListener?): this(mapFragment, context) {
 		this.listener = listener
 	}
 
@@ -140,37 +132,18 @@ class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallba
 
 	//===========================================================================================================
 
-	fun placePin(coords: Coordinates, clear: Boolean): Marker? {
+	fun placePin(coords: Coordinates, clear: Boolean): Marker {
 		if (clear) gmap!!.clear()
 
 		clickedMarker = gmap?.addMarker(MarkerOptions().position(coords.toLatLng()))
 		pinCoords = coords
 
-		return clickedMarker
+		return clickedMarker!!
 	}
 
 	//===========================================================================================================
 
-	fun placePin(coords: Coordinates, clear: Boolean, iconId: Int): Marker? {
-		if (clear) gmap!!.clear()
-
-		val b = BitmapFactory.decodeResource(mapFragment?.resources, iconId)
-		val smallMarker = Bitmap.createScaledBitmap(b, 128, 128, false)
-
-		val opt: MarkerOptions = MarkerOptions()
-		opt.position(coords.toLatLng())
-		opt.icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
-
-		clickedMarker = gmap!!.addMarker(opt)
-
-		pinCoords = coords
-
-		return clickedMarker
-	}
-
-	//===========================================================================================================
-
-	fun placePin(coords: Coordinates, clear: Boolean, iconId: Int, draggable: Boolean): Marker? {
+	fun placePin(coords: Coordinates, clear: Boolean, iconId: Int, draggable: Boolean = false): Marker {
 		if (clear) gmap!!.clear()
 
 		val b = BitmapFactory.decodeResource(mapFragment?.resources, iconId)
@@ -185,23 +158,25 @@ class Map(mapFragment: SupportMapFragment?, context: Context) : OnMapReadyCallba
 
 		pinCoords = coords
 
-		return clickedMarker
+		return clickedMarker!!
 	}
 
 	//===========================================================================================================
 
-	fun placeStartPin(coords: Coordinates, clear: Boolean, iconId: Int) {
+	//Use BitmapDescriptorFactory.HUE_* for color
+	fun placePin(coords: Coordinates, clear: Boolean, iconColor: Float, draggable: Boolean = false): Marker {
 		if (clear) gmap!!.clear()
 
-		val b = BitmapFactory.decodeResource(mapFragment?.resources, iconId)
-		val smallMarker = Bitmap.createScaledBitmap(b, 100, 100, false)
-		startCoords = coords
 		val opt: MarkerOptions = MarkerOptions()
+		opt.draggable(draggable)
 		opt.position(coords.toLatLng())
-		opt.icon(BitmapDescriptorFactory.fromBitmap(smallMarker))
-		opt.title("Your Location")
+		opt.icon(BitmapDescriptorFactory.defaultMarker(iconColor))
 
-		gmap?.addMarker(opt)
+		clickedMarker = gmap?.addMarker(opt)
+
+		pinCoords = coords
+
+		return clickedMarker!!
 	}
 
 	//===========================================================================================================

@@ -1,7 +1,11 @@
 package com.zoukos.bus
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
@@ -9,6 +13,11 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,6 +73,7 @@ import com.zoukos.bus.ui.MapScreen
 import com.zoukos.bus.ui.theme.BusTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.selects.select
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
@@ -71,13 +81,26 @@ import retrofit2.Response
 
 //==============================================================================================
 
-class MainActivity : ComponentActivity()
+class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 {
 	private val entries1:MutableList<ListEntry> = mutableStateListOf()
 	private val entries2:MutableList<ListEntry> = mutableStateListOf()
+	private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>;
+	private var selectedStop: Stop? = null
 
 	override fun onCreate(savedInstanceState: Bundle?){
 		super.onCreate(savedInstanceState)
+
+		activityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult(),this);
+
+		val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE)
+		val mapper: ObjectMapper = ObjectMapper()
+		val jsonStr:String? = sharedPreferences.getString("stop", null)
+		selectedStop = if (jsonStr != null) Stop(mapper.readTree(jsonStr)) else null
+		onRefresh()
+
+		//==========================================================================================
+
 		enableEdgeToEdge()
 		setContent{
 			BusTheme{
@@ -141,7 +164,12 @@ class MainActivity : ComponentActivity()
 
 	private fun onRefresh(): Unit{
 
-		getStopData("678", object: Callback<ResponseBody> {
+		if (selectedStop == null){
+			Tostaki(this@MainActivity, "No selected stop", Toast.LENGTH_SHORT)
+			return
+		}
+
+		getStopData(selectedStop!!.code, object: Callback<ResponseBody> {
 			override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>){
 
 				Log.d("BUS", "Communication success")
@@ -225,39 +253,29 @@ class MainActivity : ComponentActivity()
 		})
 	}
 
-	fun test(){
-		entries1.clear()
-		entries2.clear()
-
-		//Print json response
-		val mapper: ObjectMapper = ObjectMapper()
-		//val rootNode: JsonNode = mapper.readTree(response.body()!!.string())
-		val rootNode: JsonNode = mapper.readTree("{\"vehicles\":[{\"lineCode\":\"608\",\"lineName\":\"ΑΝΩ ΚΑΣΤΡΙΤΣΙ\",\"routeCode\":\"6081\",\"routeName\":\"ΑΝΩ ΚΑΣΤΡΙΤΣΙ\",\"latitude\":\"38.257454\",\"longitude\":\"21.748185\",\"departureMins\":6,\"departureSeconds\":30,\"vehicleCode\":\"20240724_6081_0010000_21_05\",\"lineColor\":\"#ccab1d\",\"lineTextColor\":\"#ffffff\",\"borderColor\":\"#A88D18\"},{\"lineCode\":\"601\",\"lineName\":\"ΠΑΝΕΠΙΣΤΗΜΙΟ ΝΟΣΟΚΟΜΕΙΟ\",\"routeCode\":\"6011\",\"routeName\":\"ΕΡΜΟΥ - ΠΑΝΕΠΙΣΤΗΜΙΟΥ\",\"latitude\":\"38.249644\",\"longitude\":\"21.740153\",\"departureMins\":9,\"departureSeconds\":7,\"vehicleCode\":\"20240724_6011_0010000_21_10\",\"lineColor\":\"#512da8\",\"lineTextColor\":\"#ffffff\",\"borderColor\":\"#412488\"},{\"lineCode\":\"609\",\"lineName\":\"ΝΟΣΟΚΟΜΕΙΟ-ΠΑΝΕΠΙΣΤΗΜΙΟ-ΚΕΝΤΡΟ\",\"routeCode\":\"6091\",\"routeName\":\"ΝΟΣΟΚΟΜΕΙΟ  ΠΑΝΕΠΙΣΤΗΜΙΟ ΕΡΜΟΥ\",\"latitude\":\"38.290284\",\"longitude\":\"21.78427\",\"departureMins\":11,\"departureSeconds\":0,\"vehicleCode\":\"1296109903164736446\",\"lineColor\":\"#512d44\",\"lineTextColor\":\"#ffffff\",\"borderColor\":\"#371E2E\"}]}")
-
-		for (item: JsonNode in rootNode.get("vehicles")){
-			var container: MutableList<ListEntry>? = null;
-
-			if (item.get("lineCode").asText() == "601")
-				container = entries1
-			else if (item.get("lineCode").asText() == "609")
-				container = entries2
-
-			container?.add(ListEntry(
-				item.get("lineCode").asText(),
-				item.get("lineName").asText(),
-				item.get("departureMins").asInt().toByte(),
-				item.get("departureSeconds").asInt().toByte(),
-				item.get("latitude").asDouble(),
-				item.get("longitude").asDouble()
-			))
-		}
-	}
-
 	private fun onMapClick()
 	{
 		//Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT)
 		val intent: Intent = Intent(this, MapScreen::class.java)
-		startActivity(intent)
+		activityResultLauncher.launch(intent)
+	}
+
+	override fun onActivityResult(result: ActivityResult) {
+
+		val data:Bundle? = result.data?.extras
+		selectedStop = data?.getSerializable("stop") as Stop?
+
+		if (result.resultCode == Activity.RESULT_OK){
+			Log.d("BUS", "OK: " + (selectedStop!!.name))
+
+			val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
+			val editor: SharedPreferences.Editor = sharedPreferences.edit();
+
+			editor.putString("stop", selectedStop!!.toJsonString())
+			editor.apply();
+
+			onRefresh()
+		}
 	}
 }
 
