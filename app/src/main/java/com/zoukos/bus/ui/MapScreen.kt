@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -22,6 +23,7 @@ import com.zoukos.bus.Coordinates
 import com.zoukos.bus.Map
 import com.zoukos.bus.MapWrapperReadyListener
 import com.zoukos.bus.R
+import com.zoukos.bus.Tostaki
 import com.zoukos.bus.network.getAllStops
 import okhttp3.ResponseBody
 import retrofit2.Call
@@ -49,16 +51,27 @@ class MapScreen: AppCompatActivity(), MapWrapperReadyListener, GoogleMap.OnMarke
 		map.setListener(this)
 		map.setMarkerListener(this)
 
+		selectedStop = intent.extras?.getSerializable("stop") as Stop?
+		Log.d("BUS", "HELLO " + selectedStop?.name)
+
 		val stopList = findViewById<RecyclerView>(R.id.listId)
 		stopList.layoutManager = object : LinearLayoutManager(this) { override fun canScrollVertically() = false }
-		stopListAdapter = StopListAdapter(this, null)
+		stopListAdapter = StopListAdapter(this, selectedStop)
 		stopList.adapter = stopListAdapter
 	}
 
 	override fun onMapWrapperReady() {
-		val Patra: Coordinates = Coordinates(38.246639, 21.734573)
-		map.zoom = 12f;
-		map.setPosition(Patra)
+
+		if (selectedStop == null){
+			val Patra: Coordinates = Coordinates(38.246639, 21.734573)
+			map.zoom = 12f;
+			map.setPosition(Patra)
+		}
+		else{
+			map.zoom = 16f;
+			map.setPosition(selectedStop!!.coords)
+		}
+
 
 		//Retrieve all stops
 
@@ -66,6 +79,14 @@ class MapScreen: AppCompatActivity(), MapWrapperReadyListener, GoogleMap.OnMarke
 
 			override fun onResponse(call: Call<ResponseBody>, resp: Response<ResponseBody>) {
 
+				if (resp.body() == null){
+					//Ok so because these guys are apparently idiots, sometimes the stops cannot be returned
+					//I may have to actually cache the stops
+					//For now I'll cache them every time I retrieve them, and only use them when this happens
+					//Later, I will probably use cache time
+					Tostaki(this@MapScreen, "Could not retrieve stops", Toast.LENGTH_SHORT)
+					return;
+				}
 				val data:String = resp.body()!!.string()
 
 				val mapper: ObjectMapper = ObjectMapper()
@@ -143,7 +164,12 @@ class MapScreen: AppCompatActivity(), MapWrapperReadyListener, GoogleMap.OnMarke
 		val extras: Bundle = Bundle()
 		extras.putSerializable("stop", selectedStop)
 		resultIntent.putExtras(extras)
-		setResult(Activity.RESULT_OK, resultIntent);
+
+		if (selectedStop != null)
+			setResult(Activity.RESULT_OK, resultIntent);
+		else
+			setResult(Activity.RESULT_CANCELED, resultIntent);
+
 		finish()
 	}
 }

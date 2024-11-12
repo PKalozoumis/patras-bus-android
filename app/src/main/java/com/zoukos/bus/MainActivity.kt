@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 	private val entries1:MutableList<ListEntry> = mutableStateListOf()
 	private val entries2:MutableList<ListEntry> = mutableStateListOf()
 	private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>;
-	private var selectedStop: Stop? = null
+	private var selectedStop = mutableStateOf<Stop?>(null)
 
 	override fun onCreate(savedInstanceState: Bundle?){
 		super.onCreate(savedInstanceState)
@@ -96,7 +96,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 		val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE)
 		val mapper: ObjectMapper = ObjectMapper()
 		val jsonStr:String? = sharedPreferences.getString("stop", null)
-		selectedStop = if (jsonStr != null) Stop(mapper.readTree(jsonStr)) else null
+		selectedStop.value = if (jsonStr != null) Stop(mapper.readTree(jsonStr)) else null
 		onRefresh()
 
 		//==========================================================================================
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 					//TextField(value = "Text", onValueChange = {})
 
 					TextField(
-						value = "Text",
+						value = selectedStop.value?.name ?: "None",
 						onValueChange = {},
 						label = {Text("Selected Stop:")},
 						enabled = false,
@@ -164,12 +164,12 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 
 	private fun onRefresh(): Unit{
 
-		if (selectedStop == null){
+		if (selectedStop.value == null){
 			Tostaki(this@MainActivity, "No selected stop", Toast.LENGTH_SHORT)
 			return
 		}
 
-		getStopData(selectedStop!!.code, object: Callback<ResponseBody> {
+		getStopData(selectedStop.value!!.code, object: Callback<ResponseBody> {
 			override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>){
 
 				Log.d("BUS", "Communication success")
@@ -219,7 +219,6 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 				//Print json response
 				val mapper: ObjectMapper = ObjectMapper()
 				val rootNode: JsonNode = mapper.readTree(response.body()!!.string())
-				//val rootNode: JsonNode = mapper.readTree("{vehicles:[{lineCode:608,lineName:ΑΝΩ ΚΑΣΤΡΙΤΣΙ,routeCode:6081,routeName:ΑΝΩ ΚΑΣΤΡΙΤΣΙ,latitude:38.257454,longitude:21.748185,departureMins:6,departureSeconds:30,vehicleCode:20240724_6081_0010000_21_05,lineColor:#ccab1d,lineTextColor:#ffffff,borderColor:#A88D18},{lineCode:601,lineName:ΠΑΝΕΠΙΣΤΗΜΙΟ ΝΟΣΟΚΟΜΕΙΟ,routeCode:6011,routeName:ΕΡΜΟΥ - ΠΑΝΕΠΙΣΤΗΜΙΟΥ,latitude:38.249644,longitude:21.740153,departureMins:9,departureSeconds:7,vehicleCode:20240724_6011_0010000_21_10,lineColor:#512da8,lineTextColor:#ffffff,borderColor:#412488},{lineCode:609,lineName:ΝΟΣΟΚΟΜΕΙΟ-ΠΑΝΕΠΙΣΤΗΜΙΟ-ΚΕΝΤΡΟ,routeCode:6091,routeName:ΝΟΣΟΚΟΜΕΙΟ  ΠΑΝΕΠΙΣΤΗΜΙΟ ΕΡΜΟΥ,latitude:38.290284,longitude:21.78427,departureMins:11,departureSeconds:0,vehicleCode:1296109903164736446,lineColor:#512d44,lineTextColor:#ffffff,borderColor:#371E2E}]}")
 
 				entries1.clear()
 				entries2.clear()
@@ -257,21 +256,23 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 	{
 		//Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT)
 		val intent: Intent = Intent(this, MapScreen::class.java)
+		intent.putExtra("stop", selectedStop.value)
+
 		activityResultLauncher.launch(intent)
 	}
 
 	override fun onActivityResult(result: ActivityResult) {
 
-		val data:Bundle? = result.data?.extras
-		selectedStop = data?.getSerializable("stop") as Stop?
-
 		if (result.resultCode == Activity.RESULT_OK){
-			Log.d("BUS", "OK: " + (selectedStop!!.name))
+			val data:Bundle? = result.data?.extras
+			selectedStop.value = data?.getSerializable("stop") as Stop?
+
+			Log.d("BUS", "OK: " + (selectedStop.value!!.name))
 
 			val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
 			val editor: SharedPreferences.Editor = sharedPreferences.edit();
 
-			editor.putString("stop", selectedStop!!.toJsonString())
+			editor.putString("stop", selectedStop.value!!.toJsonString())
 			editor.apply();
 
 			onRefresh()
