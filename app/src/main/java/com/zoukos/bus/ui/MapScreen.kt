@@ -2,7 +2,9 @@ package com.zoukos.bus.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -22,6 +24,7 @@ import com.zoukos.bus.Stop
 import com.zoukos.bus.Coordinates
 import com.zoukos.bus.Map
 import com.zoukos.bus.MapWrapperReadyListener
+import com.zoukos.bus.MyApplication
 import com.zoukos.bus.R
 import com.zoukos.bus.Tostaki
 import com.zoukos.bus.network.getAllStops
@@ -74,80 +77,108 @@ class MapScreen: AppCompatActivity(), MapWrapperReadyListener, GoogleMap.OnMarke
 
 
 		//Retrieve all stops
-
 		getAllStops(object: Callback<ResponseBody>{
 
 			override fun onResponse(call: Call<ResponseBody>, resp: Response<ResponseBody>) {
 
+				val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
+
+				var data:String? = "";
+
+				//If I failed to get server data, I will use the cached stops
 				if (resp.body() == null){
 					//Ok so because these guys are apparently idiots, sometimes the stops cannot be returned
 					//I may have to actually cache the stops
 					//For now I'll cache them every time I retrieve them, and only use them when this happens
 					//Later, I will probably use cache time
-					Tostaki(this@MapScreen, "Could not retrieve stops", Toast.LENGTH_SHORT)
-					return;
-				}
-				val data:String = resp.body()!!.string()
 
-				val mapper: ObjectMapper = ObjectMapper()
-				val root: ArrayNode = mapper.readTree(data) as ArrayNode
+					data = sharedPreferences.getString("stops", null)
 
-
-				//Filter stops, to only keep routes 6011 and 6091
-				val stops = root.filter{
-					val routeCodes = it["routeCodes"].asIterable()
-
-					var res:Boolean = false;
-
-					for (node:JsonNode in routeCodes){
-						if ((node.asText() == "6011") || (node.asText() == "6091")){
-							res = true;
-							break;
-						}
+					if (data == null){
+						Tostaki(this@MapScreen, "Could not refresh stops", Toast.LENGTH_SHORT)
+						return;
 					}
-
-					res;
 				}
-				//Change json structure
-				.map{
-					var jsonObject:ObjectNode = mapper.createObjectNode()
+				//If I got server data successfully
+				else{
+					data = resp.body()!!.string()
 
-					jsonObject.set<JsonNode>("id", it["id"])
-					jsonObject.set<JsonNode>("code", it["code"])
-					jsonObject.set<JsonNode>("name", it["name"])
-					jsonObject.set<JsonNode>("coords", mapper.createObjectNode().apply{
-						set<JsonNode>("lat", it["latitude"])
-						set<JsonNode>("lng", it["longitude"])
-					})
-					jsonObject.set<ArrayNode>("lines", mapper.valueToTree(it["lineCodes"].filter{stop -> stop.asText() == "601" || stop.asText() == "609"}))
+					val editor: SharedPreferences.Editor = sharedPreferences.edit();
 
-					jsonObject;
+					editor.putString("stops", data);
+					editor.apply();
 				}
 
-				Log.d("JSON", mapper.writeValueAsString(stops))
-
-				for (stop in stops){
-
-					val temp:Stop = Stop(stop)
-
-					val color:Float = when{
-						temp.lines.contains("601") && temp.lines.contains("609")->BitmapDescriptorFactory.HUE_VIOLET
-						temp.lines.contains("601")->BitmapDescriptorFactory.HUE_RED
-						temp.lines.contains("609")->BitmapDescriptorFactory.HUE_BLUE
-						else->0f
-					}
-
-					map.placePin(Coordinates(stop["coords"]), false, color).tag = temp
-				}
+				//After getting stop data either way, we filter it
+				//------------------------------------------------------------------------
+				placeStopsOnMap(data);
 			}
 
 			override fun onFailure(p0: Call<ResponseBody>, p1: Throwable) {
-				TODO("Not yet implemented")
+				val sharedPreferences: SharedPreferences = MyApplication.appContext.getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
+				val data = sharedPreferences.getString("stops", null);
+
+				if (data == null){
+					Tostaki(this@MapScreen, "No stops in cache", Toast.LENGTH_SHORT)
+				}
+				else placeStopsOnMap(data);
+			}
+		})
+	}
+
+
+	fun placeStopsOnMap(data: String?): Unit{
+		val mapper: ObjectMapper = ObjectMapper()
+		val root: ArrayNode = mapper.readTree(data) as ArrayNode
+
+		//Filter stops, to only keep routes 6011 and 6091
+		val stops = root.filter{
+			val routeCodes = it["routeCodes"].asIterable()
+
+			var res:Boolean = false;
+
+			for (node:JsonNode in routeCodes){
+				if ((node.asText() == "6011") || (node.asText() == "6091")){
+					res = true;
+					break;
+				}
 			}
 
-		})
+			res;
+		}
+		//Change json structure
+		.map{
+			val jsonObject:ObjectNode = mapper.createObjectNode()
 
+			jsonObject.set<JsonNode>("id", it["id"])
+			jsonObject.set<JsonNode>("code", it["code"])
+			jsonObject.set<JsonNode>("name", it["name"])
+			jsonObject.set<JsonNode>("coords", mapper.createObjectNode().apply{
+				set<JsonNode>("lat", it["latitude"])
+				set<JsonNode>("lng", it["longitude"])
+			})
+			jsonObject.set<ArrayNode>("lines", mapper.valueToTree(it["lineCodes"].filter{stop -> stop.asText() == "601" || stop.asText() == "609"}))
 
+			jsonObject;
+		}
+
+		Log.d("JSON", mapper.writeValueAsString(stops))
+
+		//Placing the stops on the map
+		//------------------------------------------------------------------------
+		for (stop in stops){
+
+			val temp:Stop = Stop(stop)
+
+			val color:Float = when{
+				temp.lines.contains("601") && temp.lines.contains("609")->BitmapDescriptorFactory.HUE_VIOLET
+				temp.lines.contains("601")->BitmapDescriptorFactory.HUE_RED
+				temp.lines.contains("609")->BitmapDescriptorFactory.HUE_BLUE
+				else->0f
+			}
+
+			map.placePin(Coordinates(stop["coords"]), false, color).tag = temp
+		}
 	}
 
 	@SuppressLint("NotifyDataSetChanged")
