@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 	private val entries2:MutableList<ListEntry> = mutableStateListOf()
 	private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>;
 	private var selectedStop = mutableStateOf<Stop?>(null)
+	private var fragment: Int = 0;
 
 	override fun onCreate(savedInstanceState: Bundle?){
 		super.onCreate(savedInstanceState)
@@ -257,6 +258,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 		//Tostaki(this@MainActivity, "sus", Toast.LENGTH_SHORT)
 		val intent: Intent = Intent(this, MapScreen::class.java)
 		intent.putExtra("stop", selectedStop.value)
+		intent.putExtra("fragment", fragment);
 
 		activityResultLauncher.launch(intent)
 	}
@@ -266,6 +268,7 @@ class MainActivity : ComponentActivity(), ActivityResultCallback<ActivityResult>
 		if (result.resultCode == Activity.RESULT_OK){
 			val data:Bundle? = result.data?.extras
 			selectedStop.value = data?.getSerializable("stop") as Stop?
+			fragment = data?.getInt("fragment")!!;
 
 			Log.d("BUS", "OK: " + (selectedStop.value!!.name))
 
